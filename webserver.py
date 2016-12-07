@@ -14,10 +14,12 @@ def videos_full(channel_id):
         info = jsonifier.get_channel_videos_full_info(channel_id)
     except video_parser.ChannelNotFoundException as e:
         return jsonify({'error': e.message, 'error_code': e.code})
-
+    except TypeError as e:
+        return jsonify({'error': str(e)})
     return Response(response=info,
                     status=200,
                     mimetype="application/json")
+
 
 @app.route("/api/videos/short/<string:channel_id>")
 def videos_short(channel_id):
@@ -25,7 +27,21 @@ def videos_short(channel_id):
         info = jsonifier.get_channel_videos_short_info(channel_id)
     except video_parser.ChannelNotFoundException as e:
         return jsonify({'error': e.message, 'error_code': e.code})
+    except TypeError as e:
+        return jsonify({'error': str(e)})
+    return Response(response=info,
+                    status=200,
+                    mimetype="application/json")
 
+
+@app.route("/api/videos/ids/<string:channel_id>")
+def videos_ids(channel_id):
+    try:
+        info = jsonifier.get_channel_videos_ids(channel_id)
+    except video_parser.ChannelNotFoundException as e:
+        return jsonify({'error': e.message, 'error_code': e.code})
+    except TypeError as e:
+        return jsonify({'error': str(e)})
     return Response(response=info,
                     status=200,
                     mimetype="application/json")

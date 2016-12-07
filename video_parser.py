@@ -3,14 +3,28 @@ import isodate
 import json
 import logging
 
+
 class ChannelNotFoundException(Exception):
+    '''
+        Exception raised when no YouTube channel is found
+        :param channel_id: The channel ID passed
+    '''
+
     def __init__(self, channel_id):
         self.channel_id = channel_id
-        self.message = 'No such channel or no videos on it - '+channel_id
+        self.message = 'No such channel or no videos on it - ' + channel_id
         self.code = 1
 
+
 class YoutubeVideo:
+    '''
+        Basic YouTube Video class
+    '''
     def __init__(self, data):
+        '''
+            Create new Youtube Video object
+        :param data: YouTube api data to use
+        '''
         try:
             self.id = data.id.videoId
         except AttributeError:
@@ -50,6 +64,10 @@ class YoutubeVideo:
             self.view_count = None
 
     def get_link(self):
+        '''
+            Method to get video link
+        :return: str - youtube link
+        '''
         return 'https://www.youtube.com/watch?v=' + self.id
 
     def __dict__(self):
@@ -59,15 +77,18 @@ class YoutubeVideo:
             thumbnail = ''
         return {
             'id': self.id,
-            'channel_id':self.channel_id,
-            'channel_title':self.channel_title,
-            'description':self.description,
-            'published_at':str(self.published_at) if self.published_at else '',
-            'title':self.title,
+            'channel_id': self.channel_id,
+            'channel_title': self.channel_title,
+            'description': self.description,
+            'published_at': str(self.published_at) if self.published_at else '',
+            'title': self.title,
             'thumbnail': thumbnail,
             'view_count': self.view_count if self.view_count else '',
-            'like_count': self.like_count if self.like_count else ''
+            'like_count': self.like_count if self.like_count else '',
+            'link': self.get_link(),
         }
+
+
 class YoutubeVideoJson:
     '''
         Simple class to get YouTube public videos info in json
@@ -91,7 +112,7 @@ class YoutubeVideoJson:
         if not isinstance(channel_id, str):
             msg = 'Channel id must be str, got ' + str(type(channel_id))
             logging.error(msg)
-            raise TypeError(msg)
+            raise TypeError(msg=msg)
 
         videos_first = self.api.video_search_in_channel('', channel_id, order='date', max_results=self.MAX_RESULTS)
         if len(videos_first.items) == 0:
@@ -103,12 +124,20 @@ class YoutubeVideoJson:
             pages -= 1
         return videos_first, page_token, pages
 
-    def _get_channel_videos_with_page_token(self,channel_id,page_token,pages):
+    def _get_channel_videos_with_page_token(self, channel_id, page_token, pages):
+        '''
+        Internal use function for retrieving all channel's videos
+        :param channel_id: Youtube channel id
+        :param page_token: Next page token from API
+        :param pages: Number of pages
+        :return: list of API video objects
+        '''
         videos = []
         for i in pages:
-            videos_current = self.api.video_search_in_channel('', channel_id, order='date', max_results=self.MAX_RESULTS,
-                                                 page_token=page_token)
-            videos+=videos_current.items
+            videos_current = self.api.video_search_in_channel('', channel_id, order='date',
+                                                              max_results=self.MAX_RESULTS,
+                                                              page_token=page_token)
+            videos += videos_current.items
             try:
                 page_token = videos_current.nextPageToken
             except AttributeError:
@@ -116,24 +145,38 @@ class YoutubeVideoJson:
         return videos
 
     def get_channel_video_ids(self, channel_id):
+        '''
+            Gets all IDs for channel videos
+        :param channel_id: Youtube channel id
+        :return: (string) - JSON of list of ID strings
+        '''
         videos_first, page_token, pages = self._get_channel_first(channel_id)
         ids = [i.id.videoId for i in videos_first.items]
-        [ids.append(j.id.videoId) for j in self._get_channel_videos_with_page_token(channel_id,page_token,pages)]
+        [ids.append(j.id.videoId) for j in self._get_channel_videos_with_page_token(channel_id, page_token, pages)]
         return json.dumps(ids)
 
     def get_channel_videos_short_info(self, channel_id):
+        '''
+            Gets short info for all channel videos
+        :param channel_id: Youtube channel id
+        :return: (string) - JSON of list of YoutubeVideo object representations
+        '''
         videos_first, page_token, pages = self._get_channel_first(channel_id)
         videos = [YoutubeVideo(i).__dict__() for i in videos_first.items]
-        [videos.append(YoutubeVideo(j).__dict__()) for j in self._get_channel_videos_with_page_token(channel_id,page_token,pages)]
+        [videos.append(YoutubeVideo(j).__dict__()) for j in
+         self._get_channel_videos_with_page_token(channel_id, page_token, pages)]
         return json.dumps(videos)
 
     def get_channel_videos_full_info(self, channel_id):
-
+        '''
+            Gets full info for all channel videos - parses each video ID individually (can be slow)
+        :param channel_id: Youtube channel id
+        :return: (string) - JSON of list of YoutubeVideo object representations
+        '''
         ids = json.loads(self.get_channel_video_ids(channel_id))
         logging.info('Got video ids for full ' + channel_id + ' info')
         videos = []
         for i in ids:
-
             v = self.api.get_video_info(i).items[0]
             videos.append(YoutubeVideo(v).__dict__())
         return json.dumps(videos)
